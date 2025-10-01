@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Test (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17' ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Temurin ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Show Maven & Java versions
+        run: |
+          mvn -v
+          java -version
+
+      # Build + test + jacoco; skip signing in CI; exclude examples module if present
+      - name: Maven verify
+        run: >
+          mvn -B -ntp
+          -Dgpg.skip=true
+          -DskipITs=true
+          -Dstyle.color=always
+          verify
+          -pl '!backend-toolkit-examples'
+
+      # Always upload surefire test reports on failure to help triage
+      - name: Upload Surefire reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-jdk-${{ matrix.java }}
+          path: |
+            **/target/surefire-reports/*
+            **/target/failsafe-reports/*
+
+      # Upload JaCoCo HTML report for quick inspection
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report-jdk-${{ matrix.java }}
+          path: |
+            **/target/site/jacoco/*
+          if-no-files-found: ignore

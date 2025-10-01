@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build only, no deploy)'
+        required: false
+        default: 'false'
+      tag:
+        description: 'Tag to release (optional when using workflow_dispatch)'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MAVEN_CLI_OPTS: -B -ntp -Dstyle.color=always
+  # Loại module demo nếu có
+  MAVEN_RELEASE_MODULES: "-pl '!backend-toolkit-examples' -am"
+
+jobs:
+  publish:
+    name: Publish to Sonatype Central
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            echo "No tag provided. For manual dispatch, supply 'tag' input (e.g., v0.1.0)."
+            exit 1
+          fi
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Parse version from tag
+        id: parse
+        run: |
+          RAW="${{ steps.tag.outputs.value }}"
+          # Accept formats: v1.2.3 or v1.2.3-RC1
+          VERSION="${RAW#v}"
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Temurin JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          # Configure server credentials for plugin id 'central'
+          server-id: central
+          server-username: OSSRH_USERNAME
+          server-password: OSSRH_PASSWORD
+          # Import GPG private key for signing
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase:  ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Show Maven & Java versions
+        run: |
+          mvn -v
+          java -version
+
+      - name: Verify project version matches tag (and not SNAPSHOT)
+        id: verify
+        run: |
+          POM_VERSION=$(mvn -q -Dexpression=project.version -DforceStdout help:evaluate)
+          TAG_VERSION='${{ steps.parse.outputs.value }}'
+
+          echo "POM_VERSION=$POM_VERSION"
+          echo "TAG_VERSION=$TAG_VERSION"
+
+          if echo "$POM_VERSION" | grep -qi 'SNAPSHOT'; then
+            echo "Project version must not be a SNAPSHOT for release."
+            exit 1
+          fi
+
+          if [ "$POM_VERSION" != "$TAG_VERSION" ]; then
+            echo "Version mismatch: pom.xml=$POM_VERSION, tag=$TAG_VERSION"
+            exit 1
+          fi
+
+      - name: Build (skip deploy for dry_run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true' }}
+        run: |
+          mvn $MAVEN_CLI_OPTS -Dgpg.skip=false -DskipTests=false verify $MAVEN_RELEASE_MODULES
+
+      - name: Deploy to Sonatype Central
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true') }}
+        env:
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          # Ensure sources/javadoc/signing are attached via plugins configured in parent POM
+          mvn $MAVEN_CLI_OPTS -DskipTests=true deploy $MAVEN_RELEASE_MODULES
+
+      - name: Attach artifacts (optional) - upload surefire & javadoc
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          if-no-files-found: ignore
+          path: |
+            **/target/surefire-reports/*
+            **/target/site/apidocs/**
+            **/target/*.jar
+            **/target/*.asc
+            **/target/*.pom
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Release tag: ${{ steps.tag.outputs.value }}"
+          echo "Version:     ${{ steps.parse.outputs.value }}"
+          echo "Dry run:      ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true' && 'yes' || 'no' }}"

@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.haiphamcoder</groupId>
+        <artifactId>backend-toolkit</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <groupId>io.github.haiphamcoder</groupId>
+    <artifactId>backend-toolkit-bom</artifactId>
+    <packaging>pom</packaging>
+    <name>Backend Toolkit BOM</name>
+    <description>Backend Toolkit BOM</description>
+    <url>https://github.com/haiphamcoder/backend-toolkit</url>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/haiphamcoder/backend-toolkit/issues</url>
+    </issueManagement>
+
+    <scm>
+        <connection>scm:git:git@github.com:haiphamcoder/backend-toolkit.git</connection>
+        <developerConnection>scm:git:git@github.com:haiphamcoder/backend-toolkit.git</developerConnection>
+        <url>https://github.com/haiphamcoder/backend-toolkit</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>haiphamcoder</id>
+            <name>Hai Pham Ngoc</name>
+            <email>ngochai285nd@gmail.com</email>
+        </developer>
+    </developers>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.haiphamcoder</groupId>
+                <artifactId>backend-toolkit-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.haiphamcoder</groupId>
+                <artifactId>backend-toolkit-spring</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten-clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <flattenMode>bom</flattenMode>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
