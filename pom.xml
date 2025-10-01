@@ -42,6 +42,7 @@
         <module>backend-toolkit-bom</module>
         <module>backend-toolkit-core</module>
         <module>backend-toolkit-spring</module>
+        <module>backend-toolkit-examples</module>
     </modules>
 
     <properties>
