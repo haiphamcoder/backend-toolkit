@@ -614,7 +614,6 @@ public class HttpCaller implements Closeable {
     }
 
     private void addFilePart(MultipartEntityBuilder builder, String fieldName, File file) {
-        // Use file-based overload to avoid closing stream before HttpClient sends the request
         builder.addBinaryBody(fieldName, file, ContentType.APPLICATION_OCTET_STREAM, file.getName());
     }
 
